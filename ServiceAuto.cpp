@@ -1,9 +1,33 @@
 
 #include<iostream>
 #include<string>
+#include<exception>
 
 using namespace std;
 
+// Exceptie personalizata
+class ExceptieCustom : public exception {
+private:
+    string mesaj;
+
+public:
+    ExceptieCustom(const char* mesaj) : mesaj(mesaj) {}
+
+    const char* what() const noexcept override {
+        return mesaj.c_str();
+    }
+};
+
+// Interfata
+class IService {
+public:
+    virtual float calculareCost(float valoare) = 0;
+    virtual bool areProgramareDisponibila() = 0;
+
+    virtual ~IService() {}
+};
+
+// Clasa abstracta
 enum Zona { CENTRALA = 1, PERIFERICA = 2 };
 
 class ServiceAuto {
@@ -17,6 +41,7 @@ private:
 
 public:
     static int nrServiceuri;
+    static const float SALARIU_MINIM;
 
     ServiceAuto() : id(++nrServiceuri) {
         this->denumire = "Service auto general";
@@ -31,15 +56,30 @@ public:
 
         nrServiceuri++;
 
+        if (nrMecanici < 0) {
+            throw ExceptieCustom("Numar invalid de mecanici!");
+        }
+
+        for (int i = 0; i < nrMecanici; i++) {
+            if (salarii[i] < SALARIU_MINIM) {
+                throw ExceptieCustom("Salariul este prea mic!");
+            }
+        }
+
         this->denumire = denumire;
         this->incasariTotale = incasariTotale;
         this->zona = zona;
         this->nrMecanici = nrMecanici;
 
-        this->salarii = new float[nrMecanici];
+        if (nrMecanici > 0) {
+            this->salarii = new float[nrMecanici];
 
-        for (int i = 0; i < this->nrMecanici; i++) {
-            this->salarii[i] = salarii[i];
+            for (int i = 0; i < nrMecanici; i++) {
+                this->salarii[i] = salarii[i];
+            }
+        }
+        else {
+            this->salarii = nullptr;
         }
 
         delete[] salarii;
@@ -84,9 +124,6 @@ public:
                     this->salarii[i] = copie.salarii[i];
                 }
             }
-            else {
-                this->salarii = nullptr;
-            }
         }
 
         return *this;
@@ -102,11 +139,11 @@ public:
             this->nrMecanici = valoareNoua;
         }
         else {
-            throw exception();
+            throw ExceptieCustom("Numar negativ de mecanici!");
         }
     }
 
-    // Getter si setter pentru salarii
+    // Getter pentru salarii
     float* getSalarii() {
         float* vSalarii = new float[this->nrMecanici];
 
@@ -117,30 +154,41 @@ public:
         return vSalarii;
     }
 
+    // Setter pentru salarii
     void setSalarii(float* vSalarii, int dim) {
-        setNrMecanici(dim);
+        if (dim < 0) {
+            throw ExceptieCustom("Dimensiune invalida!");
+        }
+
+        for (int i = 0; i < dim; i++) {
+            if (vSalarii[i] < SALARIU_MINIM) {
+                throw ExceptieCustom("Salariul este prea mic!");
+            }
+        }
 
         if (this->salarii != nullptr) {
             delete[] this->salarii;
             this->salarii = nullptr;
         }
 
-        if (vSalarii != nullptr) {
-            this->salarii = new float[this->nrMecanici];
+        this->nrMecanici = dim;
 
-            for (int i = 0; i < this->nrMecanici; i++) {
+        if (dim > 0 && vSalarii != nullptr) {
+            this->salarii = new float[dim];
+
+            for (int i = 0; i < dim; i++) {
                 this->salarii[i] = vSalarii[i];
             }
-
-            delete[] vSalarii;
         }
         else {
             this->salarii = nullptr;
         }
+
+        delete[] vSalarii;
     }
 
-    // Afisare
-    void afisare() {
+    // Functie virtuala
+    virtual void afisare() {
         cout << endl << "Id: " << this->id;
         cout << endl << "Denumire: " << this->denumire;
         cout << endl << "Incasari totale: " << this->incasariTotale;
@@ -167,18 +215,12 @@ public:
         }
     }
 
+    // Functie virtuala pura
+    virtual float getProcentReducere() = 0;
+
     // Operator <
     bool operator<(const ServiceAuto& s) {
         return this->nrMecanici < s.nrMecanici;
-    }
-
-    // Destructor
-    ~ServiceAuto() {
-        cout << endl << "S-a apelat destructorul!";
-
-        if (this->salarii != nullptr) {
-            delete[] this->salarii;
-        }
     }
 
     // Operator +=
@@ -186,7 +228,7 @@ public:
         this->incasariTotale += incasariDeAdaugat;
     }
 
-    // Operator negatie !
+    // Operator !
     bool operator!() {
         return this->incasariTotale <= 0;
     }
@@ -202,13 +244,13 @@ public:
             return this->salarii[index];
         }
         else {
-            throw exception();
+            throw ExceptieCustom("Index invalid!");
         }
     }
 
-    // Operator << / afisare
+    // Operator <<
     friend ostream& operator<<(ostream& out, const ServiceAuto& s) {
-        out << endl << "Operator de afisare: ";
+        out << endl << "Operator de afisare:";
         out << endl << "Id: " << s.id;
         out << endl << "Denumire: " << s.denumire;
         out << endl << "Incasari totale: " << s.incasariTotale;
@@ -233,29 +275,42 @@ public:
         return out;
     }
 
-    // Operator >> / citire
+    // Operator >>
     friend istream& operator>>(istream& in, ServiceAuto& s);
 
-    // Postincrementare ob++
-    ServiceAuto operator++(int) {
-        ServiceAuto copie = *this;
+    // Postincrementare
+    float operator++(int) {
+        float copie = this->incasariTotale;
         this->incasariTotale++;
 
         return copie;
     }
 
-    // Preincrementare ++ob
-    ServiceAuto operator++() {
+    // Preincrementare
+    float operator++() {
         this->incasariTotale++;
 
-        return *this;
+        return this->incasariTotale;
     }
 
     // Cast explicit
     explicit operator int() {
         return this->nrMecanici;
     }
+
+    // Destructor virtual
+    virtual ~ServiceAuto() {
+        cout << endl << "Destructor ServiceAuto!";
+
+        if (this->salarii != nullptr) {
+            delete[] this->salarii;
+        }
+    }
 };
+
+// Definire membri statici
+int ServiceAuto::nrServiceuri = 0;
+const float ServiceAuto::SALARIU_MINIM = 1000;
 
 // Operator >> definit in afara clasei
 istream& operator>>(istream& in, ServiceAuto& s) {
@@ -269,14 +324,21 @@ istream& operator>>(istream& in, ServiceAuto& s) {
     int zona;
     in >> zona;
 
-    if (zona == 1) s.zona = CENTRALA;
-    if (zona == 2) s.zona = PERIFERICA;
+    if (zona == 1) {
+        s.zona = CENTRALA;
+    }
+    else if (zona == 2) {
+        s.zona = PERIFERICA;
+    }
+    else {
+        throw ExceptieCustom("Zona invalida!");
+    }
 
     cout << endl << "Nr. mecanici: ";
     in >> s.nrMecanici;
 
     if (s.nrMecanici < 0) {
-        throw exception();
+        throw ExceptieCustom("Numar invalid de mecanici!");
     }
 
     if (s.salarii != nullptr) {
@@ -287,116 +349,200 @@ istream& operator>>(istream& in, ServiceAuto& s) {
     if (s.nrMecanici > 0) {
         s.salarii = new float[s.nrMecanici];
 
-        cout << endl << "Salarii: ";
-
         for (int i = 0; i < s.nrMecanici; i++) {
             cout << endl << "salarii[" << i << "]: ";
             in >> s.salarii[i];
+
+            if (s.salarii[i] < ServiceAuto::SALARIU_MINIM) {
+                throw ExceptieCustom("Salariul este prea mic!");
+            }
         }
     }
 
     return in;
 }
 
-int ServiceAuto::nrServiceuri = 0;
+// Clasa derivata 1
+class ServiceAutoAutorizat : public ServiceAuto, public IService {
+private:
+    float procentReducere;
+    bool programareDisponibila;
+
+public:
+    ServiceAutoAutorizat() : ServiceAuto(), procentReducere(10),
+        programareDisponibila(true) {
+    }
+
+    ServiceAutoAutorizat(int id, string denumire, float incasari,
+        int nrMecanici, float* salarii, Zona zona,
+        float procentReducere, bool programare)
+        : ServiceAuto(id, denumire, incasari, nrMecanici, salarii, zona) {
+
+        this->procentReducere = procentReducere;
+        this->programareDisponibila = programare;
+    }
+
+    void afisare() override {
+        ServiceAuto::afisare();
+
+        cout << endl << "Tip: Service autorizat";
+        cout << endl << "Procent reducere: " << this->procentReducere;
+    }
+
+    float getProcentReducere() override {
+        return this->procentReducere;
+    }
+
+    // Implementarea interfetei
+    float calculareCost(float valoare) override {
+        return valoare - valoare * this->procentReducere / 100;
+    }
+
+    bool areProgramareDisponibila() override {
+        return this->programareDisponibila;
+    }
+};
+
+// Clasa derivata 2
+class ServiceAutoIndependent : public ServiceAuto, public IService {
+private:
+    float procentReducere;
+    bool programareDisponibila;
+
+public:
+    ServiceAutoIndependent() : ServiceAuto(), procentReducere(5),
+        programareDisponibila(false) {
+    }
+
+    ServiceAutoIndependent(int id, string denumire, float incasari,
+        int nrMecanici, float* salarii, Zona zona,
+        float procentReducere, bool programare)
+        : ServiceAuto(id, denumire, incasari, nrMecanici, salarii, zona) {
+
+        this->procentReducere = procentReducere;
+        this->programareDisponibila = programare;
+    }
+
+    void afisare() override {
+        ServiceAuto::afisare();
+
+        cout << endl << "Tip: Service independent";
+        cout << endl << "Procent reducere: " << this->procentReducere;
+    }
+
+    float getProcentReducere() override {
+        return this->procentReducere;
+    }
+
+    // Implementarea interfetei
+    float calculareCost(float valoare) override {
+        return valoare - valoare * this->procentReducere / 100;
+    }
+
+    bool areProgramareDisponibila() override {
+        return this->programareDisponibila;
+    }
+};
 
 int main() {
 
-    ServiceAuto serviceGeneral;
-
-    // Operator negatie
-    if (!serviceGeneral) {
-        cout << endl << "Service-ul nu are incasari!";
-    }
-    else {
-        cout << endl << "Service-ul are incasari!";
-    }
-
-    // Operator functie
-    cout << endl << serviceGeneral(100);
-
-    // Operator <<
-    cout << serviceGeneral;
-
-    float* salarii = new float[3] {3500, 4200, 5000};
-
-    ServiceAuto* serviceDacia =
-        new ServiceAuto(7, "Service_Dacia", 97000, 3, salarii, CENTRALA);
-
-    // Operator +=
-    (*serviceDacia) += 100;
-
-    // Operator <
-    if (serviceGeneral < *serviceDacia) {
-        cout << endl << "Service-ul general are mai putini mecanici decat Service Dacia!";
-    }
-    else {
-        cout << endl << "Service Dacia are mai putini mecanici decat service-ul general!";
-    }
-
-    // Operator []
-    (*serviceDacia)[0] = 4000;
-
-    cout << endl << (*serviceDacia)[0];
-
-    // Operator <<
-    cout << *serviceDacia;
-
-    // Operator >>
-    // ServiceAuto serviceUnirii;
-    // cin >> serviceUnirii;
-    // cout << serviceUnirii;
-
-    // Postincrementare
-    ServiceAuto service1 = serviceGeneral++;
-
-    cout << service1;
-    cout << serviceGeneral;
-
-    // Preincrementare
-    ServiceAuto service2 = ++serviceGeneral;
-
-    cout << service2;
-    cout << serviceGeneral;
-
-    // Cast explicit
-    cout << endl << "Cast service -> int: "
-        << int(*serviceDacia);
-
-    // Constructor de copiere
-    ServiceAuto* serviceTineretului =
-        new ServiceAuto(*serviceDacia);
-
-    cout << *serviceTineretului;
-
-    // Operator de atribuire
-    serviceGeneral = *serviceTineretului;
-
-    cout << serviceGeneral;
-
-    // Getter si setter
     try {
-        serviceGeneral.setNrMecanici(2);
+
+        // Creare obiecte prin clase derivate
+        ServiceAuto* service[3];
+
+        service[0] = new ServiceAutoAutorizat(
+            1, "Service_Dacia", 97000, 3,
+            new float[3] {3500, 4200, 5000},
+            CENTRALA, 15, true
+        );
+
+        service[1] = new ServiceAutoIndependent(
+            2, "Service_BMW", 85000, 2,
+            new float[2] {4000, 5500},
+            PERIFERICA, 5, false
+        );
+
+        service[2] = new ServiceAutoAutorizat(
+            3, "Service_Auto", 120000, 2,
+            new float[2] {4500, 6000},
+            CENTRALA, 20, true
+        );
+
+        // Polimorfism
+        for (int i = 0; i < 3; i++) {
+            service[i]->afisare();
+
+            cout << endl << "Reducere: "
+                << service[i]->getProcentReducere() << "%";
+        }
+
+        // Interfata
+        IService* operation = dynamic_cast<IService*>(service[0]);
+
+        cout << endl << "Cost dupa reducere: "
+            << operation->calculareCost(1000);
+
+        cout << endl << "Programare disponibila: "
+            << operation->areProgramareDisponibila();
+
+        // Operator +=
+        (*service[0]) += 500;
+
+        // Operator []
+        (*service[0])[0] = 4500;
+
+        // Operator <<
+        cout << *service[0];
+
+        // Operator !
+        if (!(*service[1])) {
+            cout << endl << "Service-ul nu are incasari!";
+        }
+
+        // Operator functie ()
+        cout << endl << "Incasari + 100: "
+            << (*service[0])(100);
+
+        // Operator <
+        if (*service[0] < *service[1]) {
+            cout << endl << "Primul service are mai putini mecanici!";
+        }
+
+        // Postincrementare
+        float valoareVeche = (*service[0])++;
+
+        cout << endl << "Valoare veche: " << valoareVeche;
+
+        // Preincrementare
+        float valoareNoua = ++(*service[0]);
+
+        cout << endl << "Valoare noua: " << valoareNoua;
+
+        // Cast explicit
+        cout << endl << "Numar mecanici: "
+            << int(*service[0]);
+
+        // Exceptie personalizata
+        try {
+            service[0]->setNrMecanici(-2);
+        }
+        catch (ExceptieCustom& e) {
+            cout << endl << "Eroare: " << e.what();
+        }
+
+        // Eliberare memorie
+        for (int i = 0; i < 3; i++) {
+            delete service[i];
+        }
+
+        cout << endl << "Numar service-uri create: "
+            << ServiceAuto::nrServiceuri;
+
     }
-    catch (...) {
-        cout << endl << "Numar invalid de mecanici!";
+    catch (ExceptieCustom& e) {
+        cout << endl << "Exceptie: " << e.what();
     }
-
-    serviceGeneral.setSalarii(new float[2] {5400, 6200}, 2);
-
-    float* vSalarii = serviceGeneral.getSalarii();
-
-    for (int i = 0; i < serviceGeneral.getNrMecanici(); i++) {
-        cout << endl << vSalarii[i] << " lei";
-    }
-
-    delete[] vSalarii;
-
-    delete serviceDacia;
-    delete serviceTineretului;
-
-    cout << endl << "Numar service-uri: "
-        << ServiceAuto::nrServiceuri;
 
     return 0;
 }
