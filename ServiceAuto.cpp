@@ -1,18 +1,17 @@
+
 #include<iostream>
 #include<string>
 
 using namespace std;
 
-enum Zona {
-    CENTRALA = 1,
-    PERIFERICA = 2
-};
+enum Zona { CENTRALA = 1, PERIFERICA = 2 };
 
 class ServiceAuto {
 private:
     const int id;
     Zona zona;
     string denumire;
+    float incasariTotale;
     int nrMecanici;
     float* salarii;
 
@@ -21,16 +20,19 @@ public:
 
     ServiceAuto() : id(++nrServiceuri) {
         this->denumire = "Service auto general";
+        this->incasariTotale = 0;
         this->zona = PERIFERICA;
         this->nrMecanici = 0;
         this->salarii = nullptr;
     }
 
-    ServiceAuto(int id, string denumire, int nrMecanici,
-        float* salarii, Zona zona) : id(id) {
+    ServiceAuto(int id, string denumire, float incasariTotale,
+        int nrMecanici, float* salarii, Zona zona) : id(id) {
+
         nrServiceuri++;
 
         this->denumire = denumire;
+        this->incasariTotale = incasariTotale;
         this->zona = zona;
         this->nrMecanici = nrMecanici;
 
@@ -44,12 +46,11 @@ public:
     }
 
     // Constructor de copiere
-    ServiceAuto(const ServiceAuto& copie)
-        : id(++nrServiceuri) {
-
+    ServiceAuto(const ServiceAuto& copie) : id(++nrServiceuri) {
         this->denumire = copie.denumire;
-        this->zona = copie.zona;
         this->nrMecanici = copie.nrMecanici;
+        this->incasariTotale = copie.incasariTotale;
+        this->zona = copie.zona;
 
         if (copie.salarii != nullptr) {
             this->salarii = new float[this->nrMecanici];
@@ -67,8 +68,9 @@ public:
     ServiceAuto& operator=(const ServiceAuto& copie) {
         if (this != &copie) {
             this->denumire = copie.denumire;
-            this->zona = copie.zona;
             this->nrMecanici = copie.nrMecanici;
+            this->incasariTotale = copie.incasariTotale;
+            this->zona = copie.zona;
 
             if (this->salarii != nullptr) {
                 delete[] this->salarii;
@@ -81,6 +83,9 @@ public:
                 for (int i = 0; i < this->nrMecanici; i++) {
                     this->salarii[i] = copie.salarii[i];
                 }
+            }
+            else {
+                this->salarii = nullptr;
             }
         }
 
@@ -101,7 +106,7 @@ public:
         }
     }
 
-    // Getter pentru salarii
+    // Getter si setter pentru salarii
     float* getSalarii() {
         float* vSalarii = new float[this->nrMecanici];
 
@@ -112,40 +117,33 @@ public:
         return vSalarii;
     }
 
-    // Setter pentru salarii
     void setSalarii(float* vSalarii, int dim) {
-        if (dim < 0) {
-            throw exception();
-        }
-
-        if (dim > 0 && vSalarii == nullptr) {
-            throw exception();
-        }
+        setNrMecanici(dim);
 
         if (this->salarii != nullptr) {
             delete[] this->salarii;
             this->salarii = nullptr;
         }
 
-        this->nrMecanici = dim;
+        if (vSalarii != nullptr) {
+            this->salarii = new float[this->nrMecanici];
 
-        if (dim > 0) {
-            this->salarii = new float[dim];
-
-            for (int i = 0; i < dim; i++) {
+            for (int i = 0; i < this->nrMecanici; i++) {
                 this->salarii[i] = vSalarii[i];
             }
+
+            delete[] vSalarii;
         }
         else {
             this->salarii = nullptr;
         }
-
-        delete[] vSalarii;
     }
 
+    // Afisare
     void afisare() {
         cout << endl << "Id: " << this->id;
         cout << endl << "Denumire: " << this->denumire;
+        cout << endl << "Incasari totale: " << this->incasariTotale;
 
         cout << endl << "Zona: ";
 
@@ -169,10 +167,12 @@ public:
         }
     }
 
+    // Operator <
     bool operator<(const ServiceAuto& s) {
         return this->nrMecanici < s.nrMecanici;
     }
 
+    // Destructor
     ~ServiceAuto() {
         cout << endl << "S-a apelat destructorul!";
 
@@ -180,69 +180,214 @@ public:
             delete[] this->salarii;
         }
     }
+
+    // Operator +=
+    void operator+=(float incasariDeAdaugat) {
+        this->incasariTotale += incasariDeAdaugat;
+    }
+
+    // Operator negatie !
+    bool operator!() {
+        return this->incasariTotale <= 0;
+    }
+
+    // Operator functie ()
+    float operator()(float valoareDeAdaugat) {
+        return this->incasariTotale + valoareDeAdaugat;
+    }
+
+    // Operator index []
+    float& operator[](int index) {
+        if (index >= 0 && index < this->nrMecanici) {
+            return this->salarii[index];
+        }
+        else {
+            throw exception();
+        }
+    }
+
+    // Operator << / afisare
+    friend ostream& operator<<(ostream& out, const ServiceAuto& s) {
+        out << endl << "Operator de afisare: ";
+        out << endl << "Id: " << s.id;
+        out << endl << "Denumire: " << s.denumire;
+        out << endl << "Incasari totale: " << s.incasariTotale;
+
+        out << endl << "Zona: ";
+
+        if (s.zona == CENTRALA) out << "CENTRALA";
+        if (s.zona == PERIFERICA) out << "PERIFERICA";
+
+        out << endl << "Nr. mecanici: " << s.nrMecanici;
+
+        if (s.salarii != nullptr && s.nrMecanici > 0) {
+            out << endl << "Salarii: ";
+
+            for (int i = 0; i < s.nrMecanici - 1; i++) {
+                out << s.salarii[i] << " lei, ";
+            }
+
+            out << s.salarii[s.nrMecanici - 1] << " lei.";
+        }
+
+        return out;
+    }
+
+    // Operator >> / citire
+    friend istream& operator>>(istream& in, ServiceAuto& s);
+
+    // Postincrementare ob++
+    ServiceAuto operator++(int) {
+        ServiceAuto copie = *this;
+        this->incasariTotale++;
+
+        return copie;
+    }
+
+    // Preincrementare ++ob
+    ServiceAuto operator++() {
+        this->incasariTotale++;
+
+        return *this;
+    }
+
+    // Cast explicit
+    explicit operator int() {
+        return this->nrMecanici;
+    }
 };
+
+// Operator >> definit in afara clasei
+istream& operator>>(istream& in, ServiceAuto& s) {
+    cout << endl << "Incasari totale: ";
+    in >> s.incasariTotale;
+
+    cout << endl << "Denumire: ";
+    in >> s.denumire;
+
+    cout << endl << "Zona: ";
+    int zona;
+    in >> zona;
+
+    if (zona == 1) s.zona = CENTRALA;
+    if (zona == 2) s.zona = PERIFERICA;
+
+    cout << endl << "Nr. mecanici: ";
+    in >> s.nrMecanici;
+
+    if (s.nrMecanici < 0) {
+        throw exception();
+    }
+
+    if (s.salarii != nullptr) {
+        delete[] s.salarii;
+        s.salarii = nullptr;
+    }
+
+    if (s.nrMecanici > 0) {
+        s.salarii = new float[s.nrMecanici];
+
+        cout << endl << "Salarii: ";
+
+        for (int i = 0; i < s.nrMecanici; i++) {
+            cout << endl << "salarii[" << i << "]: ";
+            in >> s.salarii[i];
+        }
+    }
+
+    return in;
+}
 
 int ServiceAuto::nrServiceuri = 0;
 
 int main() {
-    ServiceAuto serviceGeneral;
-    serviceGeneral.afisare();
 
-    float* salarii = new float[] {3500, 4200, 5000};
+    ServiceAuto serviceGeneral;
+
+    // Operator negatie
+    if (!serviceGeneral) {
+        cout << endl << "Service-ul nu are incasari!";
+    }
+    else {
+        cout << endl << "Service-ul are incasari!";
+    }
+
+    // Operator functie
+    cout << endl << serviceGeneral(100);
+
+    // Operator <<
+    cout << serviceGeneral;
+
+    float* salarii = new float[3] {3500, 4200, 5000};
 
     ServiceAuto* serviceDacia =
-        new ServiceAuto(7, "Service Dacia", 3, salarii, CENTRALA);
+        new ServiceAuto(7, "Service_Dacia", 97000, 3, salarii, CENTRALA);
 
-    serviceDacia->afisare();
+    // Operator +=
+    (*serviceDacia) += 100;
+
+    // Operator <
+    if (serviceGeneral < *serviceDacia) {
+        cout << endl << "Service-ul general are mai putini mecanici decat Service Dacia!";
+    }
+    else {
+        cout << endl << "Service Dacia are mai putini mecanici decat service-ul general!";
+    }
+
+    // Operator []
+    (*serviceDacia)[0] = 4000;
+
+    cout << endl << (*serviceDacia)[0];
+
+    // Operator <<
+    cout << *serviceDacia;
+
+    // Operator >>
+    // ServiceAuto serviceUnirii;
+    // cin >> serviceUnirii;
+    // cout << serviceUnirii;
+
+    // Postincrementare
+    ServiceAuto service1 = serviceGeneral++;
+
+    cout << service1;
+    cout << serviceGeneral;
+
+    // Preincrementare
+    ServiceAuto service2 = ++serviceGeneral;
+
+    cout << service2;
+    cout << serviceGeneral;
+
+    // Cast explicit
+    cout << endl << "Cast service -> int: "
+        << int(*serviceDacia);
 
     // Constructor de copiere
     ServiceAuto* serviceTineretului =
         new ServiceAuto(*serviceDacia);
 
-    serviceTineretului->afisare();
+    cout << *serviceTineretului;
 
     // Operator de atribuire
     serviceGeneral = *serviceTineretului;
-    serviceGeneral.afisare();
 
-    ServiceAuto serviceX;
-    serviceX = serviceGeneral;
-    serviceX.afisare();
+    cout << serviceGeneral;
 
-    // Testarea setterului
+    // Getter si setter
     try {
-        serviceX.setNrMecanici(2);
-    }
-    catch (int cod) {
-        cout << endl << cod;
-    }
-    catch (const char* mesaj) {
-        cout << endl << mesaj;
+        serviceGeneral.setNrMecanici(2);
     }
     catch (...) {
         cout << endl << "Numar invalid de mecanici!";
     }
 
-    cout << endl << "Noul numar de mecanici este: "
-        << serviceX.getNrMecanici() << endl;
+    serviceGeneral.setSalarii(new float[2] {5400, 6200}, 2);
 
-    // Modificarea salariilor
-    serviceX.setSalarii(new float[2] {5400, 6200}, 2);
+    float* vSalarii = serviceGeneral.getSalarii();
 
-    float* vSalarii = serviceX.getSalarii();
-
-    for (int i = 0; i < serviceX.getNrMecanici(); i++) {
-        cout << vSalarii[i] << " lei, ";
-    }
-
-    // Compararea service-urilor
-    if (serviceX < serviceGeneral) {
-        cout << endl
-            << "ServiceX are mai putini mecanici decat serviceGeneral!";
-    }
-    else {
-        cout << endl
-            << "ServiceGeneral are mai putini mecanici decat serviceX!";
+    for (int i = 0; i < serviceGeneral.getNrMecanici(); i++) {
+        cout << endl << vSalarii[i] << " lei";
     }
 
     delete[] vSalarii;
